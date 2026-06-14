@@ -5742,19 +5742,24 @@ function renderConversationsPagination(visibleCount) {
     const infoText = tFn
         ? tFn('chat.paginationRange', { start, end, total })
         : `${start}-${end}/${total}`;
-    const pageText = tFn
-        ? tFn('chat.paginationPage', { page, total: totalPages })
-        : `${page}/${totalPages}`;
     const perPageLabel = tFn ? tFn('chat.paginationPerPage') : 'Per page';
+    const firstLabel = tFn ? tFn('chat.paginationFirst') : 'First';
     const prevLabel = tFn ? tFn('chat.paginationPrev') : 'Prev';
     const nextLabel = tFn ? tFn('chat.paginationNext') : 'Next';
+    const lastLabel = tFn ? tFn('chat.paginationLast') : 'Last';
+    const jumpLabel = tFn ? tFn('chat.paginationJump') : 'Go to page';
     el.innerHTML = `
         <div class="sidebar-list-pagination-inner sidebar-list-pagination-inner--compact">
             <span class="pagination-info">${escapeHtml(infoText)}</span>
             <div class="pagination-controls">
+                <button type="button" class="btn-icon-pagination" onclick="goConversationsPage(1)" ${page <= 1 || navDisabled ? 'disabled' : ''} title="${escapeHtml(firstLabel)}" aria-label="${escapeHtml(firstLabel)}">«</button>
                 <button type="button" class="btn-icon-pagination" onclick="goConversationsPage(${page - 1})" ${page <= 1 || navDisabled ? 'disabled' : ''} title="${escapeHtml(prevLabel)}" aria-label="${escapeHtml(prevLabel)}">‹</button>
-                <span class="pagination-page">${escapeHtml(pageText)}</span>
+                <label class="pagination-page-jump" title="${escapeHtml(jumpLabel)}">
+                    <input type="number" class="pagination-page-input" min="1" max="${totalPages}" value="${page}" inputmode="numeric" ${navDisabled ? 'disabled' : ''} aria-label="${escapeHtml(jumpLabel)}" onfocus="this.select()" onkeydown="handleConversationsPageInputKeydown(event)" onblur="submitConversationsPageInput(this)">
+                    <span class="pagination-page-total">/${escapeHtml(String(totalPages))}</span>
+                </label>
                 <button type="button" class="btn-icon-pagination" onclick="goConversationsPage(${page + 1})" ${page >= totalPages || navDisabled ? 'disabled' : ''} title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+                <button type="button" class="btn-icon-pagination" onclick="goConversationsPage(${totalPages})" ${page >= totalPages || navDisabled ? 'disabled' : ''} title="${escapeHtml(lastLabel)}" aria-label="${escapeHtml(lastLabel)}">»</button>
             </div>
             <label class="pagination-page-size">
                 ${escapeHtml(perPageLabel)}
@@ -5775,6 +5780,37 @@ function goConversationsPage(page) {
     loadConversationsWithGroups(conversationsSearchQuery);
 }
 
+function submitConversationsPageInput(input) {
+    if (!input) return;
+    const raw = String(input.value || '').trim();
+    const target = parseInt(raw, 10);
+    if (!Number.isFinite(target)) {
+        input.value = String(conversationsPagination.page || 1);
+        return;
+    }
+    const totalPages = Math.max(1, Math.ceil((conversationsPagination.total || 0) / conversationsPagination.pageSize) || 1);
+    const next = Math.min(Math.max(1, target), totalPages);
+    input.value = String(next);
+    goConversationsPage(next);
+}
+
+function handleConversationsPageInputKeydown(event) {
+    if (!event) return;
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitConversationsPageInput(event.currentTarget);
+        if (event.currentTarget && typeof event.currentTarget.blur === 'function') {
+            event.currentTarget.blur();
+        }
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        if (event.currentTarget) {
+            event.currentTarget.value = String(conversationsPagination.page || 1);
+            event.currentTarget.blur();
+        }
+    }
+}
+
 function changeConversationsPageSize() {
     const sel = document.getElementById('conversations-page-size-pagination');
     const newSize = sel ? parseInt(sel.value, 10) : 50;
@@ -5788,6 +5824,8 @@ function changeConversationsPageSize() {
 }
 
 window.goConversationsPage = goConversationsPage;
+window.submitConversationsPageInput = submitConversationsPageInput;
+window.handleConversationsPageInputKeydown = handleConversationsPageInputKeydown;
 window.changeConversationsPageSize = changeConversationsPageSize;
 
 // 加载分组列表
